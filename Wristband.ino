@@ -6,6 +6,8 @@
 #include <SD.h>
 #include <SoftwareSerial.h>
 #define SD_ChipSelectPin 4  //CS Pin of SDCard Module
+#define BUTTON_PRESSED LOW   
+#define BUTTON_PRESS_TIME 1000      //~5 seconds at 5V
 
 SoftwareSerial BTserial(5,6); //10,11 TX | RX
 
@@ -26,6 +28,8 @@ char alarmCode;
 char roomNumber;
 bool waitRoom;
 
+bool buttonPressed;
+int buttonPressCount;
 int songQueue;
 bool notResponding;
 
@@ -56,6 +60,8 @@ void setup() {
 }
 
 void loop() {
+	
+  checkButton(); 
     
   if(BTserial.available()){   
     
@@ -143,4 +149,61 @@ void setupSDCard()
 void setVibration(bool start) 
 {
   //The vibe board unfortunatly never arrived.
+}
+
+//Take action after pushing the button
+void checkButton()
+{
+  int buttonState = digitalRead(pinButton);
+  
+  if (buttonState == LOW) {
+    buttonPressed = true;
+  }
+  else {
+    buttonPressed = false;
+    if (buttonPressCount == -1) {
+      buttonPressCount = -1;
+    }
+    else if (buttonPressCount == -2 && buttonState == HIGH) {
+      buttonPressCount = -1;
+    }
+  }
+  
+  if (!buttonPressed && buttonPressCount >= 0 && buttonPressCount < BUTTON_PRESS_TIME) {
+    BTserial.write("k");
+    tmrpcm.disable();
+    songQueue = -1;
+    buttonPressCount = -2;
+  }  
+  
+  if (buttonState == LOW && buttonPressed && buttonPressCount >= -1) {
+    buttonPressCount++;
+    Serial.println(buttonPressCount);
+    
+    //Activate / Deactivate sleep mode
+    if (buttonPressCount > BUTTON_PRESS_TIME) {
+      sleepMode = !sleepMode;
+      
+      if (sleepMode) 
+      {
+        if (tmrpcm.isPlaying()) 
+        {
+          tmrpcm.disable();
+        }
+        
+        tmrpcm.play("sleepon.wav");
+      }
+      else 
+      {
+        if (tmrpcm.isPlaying()) 
+        {
+          tmrpcm.disable();
+        }
+        
+        tmrpcm.play("sleepoff.wav");
+      }
+      
+      buttonPressCount = -2;
+    }
+  }  
 }
