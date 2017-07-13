@@ -20,7 +20,7 @@ char roomNumber = '0';        //Number (char) of the room where the alarm was tr
 //---------
 
 // Variables for PIR 
-long interval = 2000000;          //Amount of time needed for the person to be considered idle (in milliseconds) 2MM = 0,56 hour
+long interval = 60000;          //Amount of time needed for the person to be considered idle (in milliseconds) 2MM = 0,56 hour
 unsigned long millisAtZero;       //Sets the milliseconds of the start timer
 unsigned long millisNow;          //Sets the milliseconds of the moment right now
 boolean timerSet = false;         //Indicates if the timer is activated or not
@@ -42,7 +42,7 @@ const String sendNumber = "4915120559108";            //Number to send the SMS t
 
 void setup()
 {  
-  Serial.begin(9600);
+  Serial.begin(9600);					//start serial monitor
  
   pinMode(pinPIR, INPUT);               // Setting port for PIR
   SetupEthernet();                      // Setting up Ethernet Connection
@@ -51,9 +51,9 @@ void setup()
  
 void loop()
 {
-  SmokeGasSensor();
-  PIRMotionSensor();
-  reciveEvent();
+  SmokeGasSensor();						//start smoke sensor 
+  PIRMotionSensor();					//start PIR sensor 
+  reciveEvent();						
 }
 
 /*
@@ -65,10 +65,13 @@ SENSORS
 //Smoke or gas detection (ANALOG)
 void SmokeGasSensor()         
 {
+  //if the value is higher than a certain amount
+  //send alarm code and room number to the wristband
   if (analogRead(pinMQ) > 400)
   {
     roomNumber = '1';
-    triggerEvent('f');      //sends alarmcode and roomnumber to the wristband
+    triggerEvent('f');      
+    Serial.write("Fire detected!");
     delay(5000);            //Delay to give the mq2 sensor some time to go back to the start value
   }
 }
@@ -118,12 +121,15 @@ THIS SECTION IS ABOUT ALARMING THE USER AND RELATIVES.
 //method for triggering the alarm on the wristband
 void triggerEvent(char alarmCode)
 {
+  //send alarm code and room number via bluetooth signals
   BTserial.write(alarmCode);
   BTserial.write(roomNumber);
 }
 //Checks from a reponse from the wristband to know the user's state
 void reciveEvent()
 {
+  //wait for serial to initialize
+  //and receive responses
   if (BTserial.available() > 0) 
   {
     response = BTserial.read();
@@ -165,7 +171,8 @@ void sendSMS(String number,String message)
 
     //should look like this...
     //api.thingspeak.com/apps/thinghttp/send_request?api_key={api key}&number={send to number}&message={text body}
-
+	
+	//create http request with required parameters
     client.print("GET /sendSMS.php?auth=");
     client.print(apiKey);
     client.print("&number=");

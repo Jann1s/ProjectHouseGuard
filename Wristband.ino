@@ -26,15 +26,20 @@ const int pinButton = 3;
 char tempChar;
 char alarmCode;
 char roomNumber;
+//indicate whether still waiting for room msg
 bool waitRoom;
 
 bool buttonPressed;
 int buttonPressCount;
 int songQueue;
+//if button is not pressed after a certain amount
 bool notResponding;
 
+//when the alarms begin 
 unsigned long millisStart;
+//current time 
 unsigned long millisNow;
+//interval time between alarms starting and current time 
 unsigned long interval;
 
 void setup() {
@@ -61,12 +66,16 @@ void setup() {
 
 void loop() {
 	
+  //cheeck if button was pressed
   checkButton(); 
     
+  //wait for bluetooth to receige msgs
   if(BTserial.available()){   
     
+    //read bluetooth messages
     tempChar = BTserial.read();
     
+    //if true, set the room number and proceed
     if (waitRoom) {
       roomNumber = tempChar;
       songQueue = 0;
@@ -74,12 +83,15 @@ void loop() {
       millisStart = millis();
     }
     
+    //depending on code, set the alarm code
     if (((tempChar == 'f' || tempChar == 'p') && !sleepMode) || (sleepMode && tempChar == 'f')) {
       alarmCode = tempChar;
       waitRoom = true;
     }
   }
   
+  //if a sound is being played now and user not responding to alarm
+  //send back sms code to base station
   if (songQueue >= 0 && !notResponding) {
     millisNow = millis();
     
@@ -89,8 +101,12 @@ void loop() {
     }
   }
   
+  //depending on the message and room, play the appropriate sound
   if (!tmrpcm.isPlaying() && songQueue >= 0) {  
     
+    //if first audio file is playing
+	  //depending on the message received
+	  //play the next room sound accordingly
     if (songQueue == 0) {
       
       if (alarmCode == 'f') {
@@ -151,7 +167,8 @@ void setVibration(bool start)
   //The vibe board unfortunatly never arrived.
 }
 
-//Take action after pushing the button
+//if button is pressed once, stop the alarm
+//if button is pressed twice, enter sleep mode
 void checkButton()
 {
   int buttonState = digitalRead(pinButton);
@@ -169,6 +186,7 @@ void checkButton()
     }
   }
   
+  //if button is pressed once
   if (!buttonPressed && buttonPressCount >= 0 && buttonPressCount < BUTTON_PRESS_TIME) {
     BTserial.write("k");
     tmrpcm.disable();
@@ -176,6 +194,7 @@ void checkButton()
     buttonPressCount = -2;
   }  
   
+  //if button is pressed twice
   if (buttonState == LOW && buttonPressed && buttonPressCount >= -1) {
     buttonPressCount++;
     Serial.println(buttonPressCount);
@@ -184,6 +203,7 @@ void checkButton()
     if (buttonPressCount > BUTTON_PRESS_TIME) {
       sleepMode = !sleepMode;
       
+      //if sleepmode is on, disable sounds and notify user 
       if (sleepMode) 
       {
         if (tmrpcm.isPlaying()) 
@@ -193,6 +213,7 @@ void checkButton()
         
         tmrpcm.play("sleepon.wav");
       }
+      //enable alarms and disable sleep mode
       else 
       {
         if (tmrpcm.isPlaying()) 
@@ -203,6 +224,7 @@ void checkButton()
         tmrpcm.play("sleepoff.wav");
       }
       
+      //reset button press count
       buttonPressCount = -2;
     }
   }  
